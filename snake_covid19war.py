@@ -1,327 +1,282 @@
-# ==========================================
-# COVID19 WAR - SNAKE GAME
-# Python + Pygame
-# ==========================================
-
-# import pygame library สำหรับสร้างเกม
+# นำเข้า pygame สำหรับสร้างเกม
 import pygame
 
-# import random สำหรับสุ่มตำแหน่ง virus
+# นำเข้า random สำหรับสุ่มตำแหน่ง virus
 import random
 
-# ==========================================
-# GAME SETTINGS
-# ==========================================
+# นำเข้า time สำหรับระบบเวลา
+import time
 
-# กำหนดความกว้างหน้าจอเกม
-WIDTH = 600
-
-# กำหนดความสูงหน้าจอเกม
-HEIGHT = 600
-
-# กำหนดขนาด grid ของ snake
-GRID_SIZE = 20
-
-# กำหนด FPS ของเกม
-FPS = 10
-
-
-# ==========================================
-# INITIALIZE PYGAME
-# ==========================================
-
-# เริ่มต้น pygame
+# เริ่มต้นระบบ pygame
 pygame.init()
 
-# เริ่มต้นระบบเสียง
-pygame.mixer.init()
+# กำหนดความกว้างหน้าจอ
+WIDTH = 900
 
-# สร้างหน้าจอเกม
+# กำหนดความสูงหน้าจอ
+HEIGHT = 600
+
+# สร้างหน้าต่างเกม
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 # ตั้งชื่อหน้าต่างเกม
-pygame.display.set_caption("Covid19War Snake")
+pygame.display.set_caption("Covid19War Snake A+")
 
-# ใช้ควบคุมความเร็วเกม
+# สร้าง clock สำหรับควบคุม FPS
 clock = pygame.time.Clock()
 
-# สร้าง font สำหรับแสดงข้อความ
-font = pygame.font.SysFont("arial", 28)
-
-
-# ==========================================
-# LOAD FILES (IMAGES + SOUND)
-# ==========================================
-
 # โหลดภาพ background
-background = pygame.image.load("bg.png")
+bg = pygame.image.load("bg.png")
 
-# โหลดภาพ immune cell (snake)
-snake_img = pygame.image.load("immune.png")
+# ปรับขนาด background ให้เต็มหน้าจอ
+bg = pygame.transform.scale(bg, (WIDTH, HEIGHT))
+
+# โหลดภาพ immune (งู)
+immune_img = pygame.image.load("immune.png")
 
 # โหลดภาพ virus
-virus_img = pygame.image.load("covid19.png")
+virus_img = pygame.image.load("virus.png")
 
-# โหลดเสียงตอนกิน virus
-eat_sound = pygame.mixer.Sound("boom.wav")
+# กำหนดขนาด grid สำหรับการเดินของ snake
+GRID = 40
 
+# สร้าง font สำหรับข้อความ
+font = pygame.font.SysFont("arial", 28)
 
-# ==========================================
-# SNAKE CLASS
-# ==========================================
-
-
-class Snake:
-
-    # constructor ของ snake
-    def __init__(self):
-
-        # list เก็บตำแหน่ง body ของ snake
-        self.body = [(300, 300)]
-
-        # ความเร็วแกน x
-        self.dx = GRID_SIZE
-
-        # ความเร็วแกน y
-        self.dy = 0
-
-        # ตัวแปรสำหรับ grow
-        self.grow = False
-
-    # function สำหรับขยับ snake
-    def move(self):
-
-        # ดึงตำแหน่งหัว snake
-        head_x, head_y = self.body[0]
-
-        # คำนวณตำแหน่งหัวใหม่
-        new_head = (head_x + self.dx, head_y + self.dy)
-
-        # เพิ่มหัวใหม่เข้า list
-        self.body.insert(0, new_head)
-
-        # ถ้าไม่ได้ grow ให้ลบหาง
-        if not self.grow:
-
-            # ลบ segment สุดท้าย
-            self.body.pop()
-
-        else:
-
-            # reset grow
-            self.grow = False
-
-    # function วาด snake
-    def draw(self):
-
-        # loop ทุก segment
-        for segment in self.body:
-
-            # วาดภาพ snake
-            screen.blit(snake_img, segment)
-
-    # function ตรวจสอบชน
-    def collision(self):
-
-        # หาตำแหน่งหัว
-        head = self.body[0]
-
-        # ถ้าชนกำแพงซ้าย
-        if head[0] < 0:
-            return True
-
-        # ถ้าชนกำแพงขวา
-        if head[0] >= WIDTH:
-            return True
-
-        # ถ้าชนกำแพงบน
-        if head[1] < 0:
-            return True
-
-        # ถ้าชนกำแพงล่าง
-        if head[1] >= HEIGHT:
-            return True
-
-        # ถ้าชนตัวเอง
-        if head in self.body[1:]:
-            return True
-
-        # ถ้าไม่ชนอะไร
-        return False
+# สร้าง font สำหรับข้อความใหญ่
+big_font = pygame.font.SysFont("arial", 50)
 
 
-# ==========================================
-# VIRUS CLASS
-# ==========================================
+# ฟังก์ชันสุ่มตำแหน่ง virus
+def random_pos():
+
+    # สุ่มค่า x
+    x = random.randint(0, (WIDTH - GRID) // GRID) * GRID
+
+    # สุ่มค่า y
+    y = random.randint(0, (HEIGHT - GRID) // GRID) * GRID
+
+    # คืนค่าตำแหน่ง
+    return (x, y)
 
 
-class Virus:
+# ฟังก์ชันเริ่มเกมใหม่
+def reset_game():
 
-    # constructor
-    def __init__(self):
+    # snake เริ่มต้น 1 ช่อง
+    snake = [(200, 200)]
 
-        # เรียก spawn
-        self.spawn()
+    # ทิศทางเริ่มต้น
+    direction = "RIGHT"
 
-    # สุ่มตำแหน่ง virus
-    def spawn(self):
+    # สร้าง virus 3 ตัว
+    viruses = [random_pos() for _ in range(3)]
 
-        # สุ่มตำแหน่ง x
-        x = random.randint(0, (WIDTH - GRID_SIZE) // GRID_SIZE) * GRID_SIZE
+    # จำนวน virus ที่กิน
+    eaten = 0
 
-        # สุ่มตำแหน่ง y
-        y = random.randint(0, (HEIGHT - GRID_SIZE) // GRID_SIZE) * GRID_SIZE
+    # เวลาเริ่มต้น
+    start_time = time.time()
 
-        # เก็บตำแหน่ง
-        self.pos = (x, y)
+    # เวลาในเกม
+    time_limit = 15
 
-    # วาด virus
-    def draw(self):
-
-        # วาดภาพ virus
-        screen.blit(virus_img, self.pos)
+    # คืนค่าทั้งหมด
+    return snake, direction, viruses, eaten, start_time, time_limit
 
 
-# ==========================================
-# CREATE GAME OBJECTS
-# ==========================================
-
-# สร้าง snake
-snake = Snake()
-
-# สร้าง virus
-virus = Virus()
-
-# คะแนนผู้เล่น
-score = 0
-
-# ตัวแปร game over
-game_over = False
-
-
-# ==========================================
-# GAME LOOP
-# ==========================================
+# เริ่มเกมครั้งแรก
+snake, direction, viruses, eaten, start_time, time_limit = reset_game()
 
 # ตัวแปรควบคุม loop
 running = True
 
-# loop หลักของเกม
+# ตัวแปรสถานะเกม
+game_over = False
+
+# ตัวแปรชนะ
+win = False
+
+# game loop
 while running:
 
-    # จำกัด FPS
-    clock.tick(FPS)
-
-    # ======================================
-    # INPUT
-    # ======================================
-
-    # ตรวจสอบ event ต่างๆ
+    # อ่าน event ต่างๆ
     for event in pygame.event.get():
 
-        # ถ้ากดปิดหน้าต่าง
+        # ถ้าปิดหน้าต่าง
         if event.type == pygame.QUIT:
 
-            # ออกจากเกม
+            # ปิดเกม
             running = False
 
-        # ถ้ากด keyboard
+        # ถ้ามีการกดปุ่ม
         if event.type == pygame.KEYDOWN:
 
-            # ถ้ากดปุ่มซ้าย
-            if event.key == pygame.K_LEFT:
+            # ถ้าเกมจบแล้วและกด R
+            if (game_over or win) and event.key == pygame.K_r:
 
-                # เปลี่ยนทิศ
-                snake.dx = -GRID_SIZE
-                snake.dy = 0
+                # reset เกมใหม่
+                snake, direction, viruses, eaten, start_time, time_limit = reset_game()
 
-            # ถ้ากดปุ่มขวา
-            if event.key == pygame.K_RIGHT:
+                # รีเซ็ตสถานะ
+                game_over = False
+                win = False
 
-                # เปลี่ยนทิศ
-                snake.dx = GRID_SIZE
-                snake.dy = 0
+            # เปลี่ยนทิศทาง
+            if event.key == pygame.K_UP and direction != "DOWN":
+                direction = "UP"
 
-            # ถ้ากดปุ่มขึ้น
-            if event.key == pygame.K_UP:
+            if event.key == pygame.K_DOWN and direction != "UP":
+                direction = "DOWN"
 
-                # เปลี่ยนทิศ
-                snake.dx = 0
-                snake.dy = -GRID_SIZE
+            if event.key == pygame.K_LEFT and direction != "RIGHT":
+                direction = "LEFT"
 
-            # ถ้ากดปุ่มลง
-            if event.key == pygame.K_DOWN:
+            if event.key == pygame.K_RIGHT and direction != "LEFT":
+                direction = "RIGHT"
 
-                # เปลี่ยนทิศ
-                snake.dx = 0
-                snake.dy = GRID_SIZE
+    # ถ้าเกมยังไม่จบ
+    if not game_over and not win:
 
-    # ======================================
-    # UPDATE GAME
-    # ======================================
+        # หัวงู
+        head_x, head_y = snake[0]
 
-    # ถ้ายังไม่ game over
-    if not game_over:
+        # คำนวณตำแหน่งใหม่
+        if direction == "UP":
+            head_y -= GRID
 
-        # ขยับ snake
-        snake.move()
+        if direction == "DOWN":
+            head_y += GRID
 
-        # ถ้าหัว snake ชน virus
-        if snake.body[0] == virus.pos:
+        if direction == "LEFT":
+            head_x -= GRID
 
-            # เล่นเสียง
-            eat_sound.play()
+        if direction == "RIGHT":
+            head_x += GRID
 
-            # เพิ่มคะแนน
-            score += 1
+        # สร้างหัวใหม่
+        new_head = (head_x, head_y)
 
-            # snake โต
-            snake.grow = True
+        # เพิ่มหัวเข้า snake
+        snake.insert(0, new_head)
 
-            # spawn virus ใหม่
-            virus.spawn()
+        # ตรวจชน virus
+        for v in viruses:
 
-        # ตรวจสอบชน
-        if snake.collision():
+            # ถ้าหัวชน virus
+            if new_head == v:
 
-            # game over
+                # เพิ่มจำนวนที่กิน
+                eaten += 1
+
+                # เพิ่มเวลา 1 วินาที
+                time_limit += 1
+
+                # ลบ virus ที่กิน
+                viruses.remove(v)
+
+                # เพิ่ม virus ใหม่หลายตัว
+                for i in range(2):
+                    viruses.append(random_pos())
+
+                # ออกจาก loop
+                break
+
+        else:
+
+            # ถ้าไม่ได้กิน virus
+            snake.pop()
+
+        # ตรวจชนขอบจอ
+        if head_x < 0 or head_x >= WIDTH or head_y < 0 or head_y >= HEIGHT:
             game_over = True
 
-    # ======================================
-    # DRAW
-    # ======================================
+        # ตรวจชนตัวเอง
+        if new_head in snake[1:]:
+            game_over = True
+
+        # ตรวจว่ากินครบ 10
+        if eaten >= 10:
+            win = True
 
     # วาด background
-    screen.blit(background, (0, 0))
+    screen.blit(bg, (0, 0))
 
-    # วาด virus
-    virus.draw()
+    # คำนวณขนาด immune ตามจำนวนที่กิน
+    size = 32 + eaten * 3
+
+    # ปรับขนาด immune
+    immune_scaled = pygame.transform.scale(immune_img, (size, size))
 
     # วาด snake
-    snake.draw()
+    for part in snake:
+        screen.blit(immune_scaled, part)
 
-    # สร้าง text คะแนน
-    score_text = font.render("Virus Eliminated: " + str(score), True, (0, 255, 255))
+    # ปรับขนาด virus
+    virus_scaled = pygame.transform.scale(virus_img, (32, 32))
 
-    # แสดงคะแนน
-    screen.blit(score_text, (10, 10))
+    # วาด virus ทุกตัว
+    for v in viruses:
+        screen.blit(virus_scaled, v)
+
+    # คำนวณเวลาที่ผ่านไป
+    elapsed = int(time.time() - start_time)
+
+    # เวลาที่เหลือ
+    remaining = time_limit - elapsed
+
+    # ถ้าเวลาหมด
+    if remaining <= 0 and not win:
+        game_over = True
+        remaining = 0
+
+    # แสดงข้อความเวลา
+    time_text = font.render("Time: " + str(remaining), True, (255, 255, 255))
+
+    # วาดเวลา
+    screen.blit(time_text, (20, 20))
+
+    # แสดงจำนวน virus ที่กิน
+    eat_text = font.render("Virus eaten: " + str(eaten) + "/10", True, (255, 255, 255))
+
+    # วาดจำนวนที่กิน
+    screen.blit(eat_text, (20, 60))
 
     # ถ้า game over
     if game_over:
 
-        # สร้างข้อความ
-        over_text = font.render("SYSTEM INFECTED", True, (255, 0, 0))
+        # สร้างข้อความแพ้
+        text = big_font.render("GAME OVER", True, (255, 50, 50))
 
-        # แสดงข้อความ
-        screen.blit(over_text, (180, 300))
+        # วาดข้อความ
+        screen.blit(text, (WIDTH // 2 - 150, HEIGHT // 2 - 40))
 
-    # update หน้าจอ
-    pygame.display.flip()
+        # ข้อความ restart
+        r = font.render("Press R to Restart", True, (255, 255, 255))
 
+        # วาดข้อความ restart
+        screen.blit(r, (WIDTH // 2 - 120, HEIGHT // 2 + 20))
 
-# ==========================================
-# QUIT GAME
-# ==========================================
+    # ถ้าชนะ
+    if win:
+
+        # สร้างข้อความชนะ
+        text = big_font.render("YOU WIN!", True, (50, 255, 50))
+
+        # วาดข้อความ
+        screen.blit(text, (WIDTH // 2 - 120, HEIGHT // 2 - 40))
+
+        # ข้อความ restart
+        r = font.render("Press R to Play Again", True, (255, 255, 255))
+
+        # วาดข้อความ restart
+        screen.blit(r, (WIDTH // 2 - 120, HEIGHT // 2 + 20))
+
+    # อัปเดตหน้าจอ
+    pygame.display.update()
+
+    # จำกัด FPS
+    clock.tick(6)
 
 # ปิด pygame
 pygame.quit()
