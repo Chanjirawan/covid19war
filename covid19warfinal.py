@@ -33,7 +33,6 @@ class Player(pygame.sprite.Sprite):
         self.radius = 40
         self.speedx = 0
         self.lastSpeedx = self.speedx
-        self.life = 100
         self.score = 0
 
     def update(self):
@@ -142,25 +141,26 @@ while running:
                 player.speedx = 0
             if event.key == pygame.K_RIGHT:
                 player.speedx = 0
-            if (event.key == pygame.K_RETURN) and (player.life < 0):
-                player.life = 100
+            if (event.key == pygame.K_RETURN) and game_over:
                 player.score = 0
                 game_time = 5
                 start_ticks = pygame.time.get_ticks()
+                game_over = False
 
     # process
+    game_over = False
     elapsed = (pygame.time.get_ticks() - start_ticks) // 1000
     seconds = game_time - elapsed
     if seconds <= 0:
         seconds = 0
-        player.life = -1
+        game_over = True
+
     if player.life > 0:
         allsprites.update()
     player_hit = pygame.sprite.spritecollide(
         player, covids, False, pygame.sprite.collide_circle
     )
     if player_hit:
-        player.life -= 1
         boom_sound.play()
     cures_hits = pygame.sprite.groupcollide(covids, cures, True, True)
     for hit in cures_hits:
@@ -186,12 +186,25 @@ while running:
     allsprites.draw(screen)
     for hit in cures_hits:
         pygame.draw.circle(screen, (255, 255, 255), hit.rect.center, 40)
-    pygame.draw.rect(screen, (0, 255, 255), (10, 10, player.life, 10))
+    bar_width = 200
+    time_ratio = seconds / game_time
+    current_width = bar_width * time_ratio
+
+    # เปลี่ยนสีตามเวลา
+    if time_ratio > 0.6:
+        bar_color = (0,255,255)   # ฟ้า (เวลาเยอะ)
+    elif time_ratio > 0.3:
+        bar_color = (255,255,0)   # เหลือง (กลางๆ)
+    else:
+        bar_color = (255,0,0)     # แดง (ใกล้หมด)
+
+    pygame.draw.rect(screen, (50,50,50), (10,10,bar_width,15))
+    pygame.draw.rect(screen, bar_color, (10,10,current_width,15))       
     textScore = font.render("score " + str(player.score), True, (0, 255, 255))
     screen.blit(textScore, ((WIDTH - textScore.get_width()) / 2, 10))
     textTimer = font.render("Time " + str(seconds), True, (255, 255, 0))
     screen.blit(textTimer, (WIDTH - 150, 10))
-    if player.life < 0:
+    if game_over:
         textOver = font.render("Game Over ", True, (0, 255, 255))
         screen.blit(textOver, ((WIDTH - textOver.get_width()) / 2, HEIGHT / 2 - 50))
         textOver = font.render("Press Enter to try again", True, (0, 255, 255))
